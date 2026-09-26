@@ -4,6 +4,7 @@
 
 Features:
 
+- Added a preference to hide the terminal right-click menu
 - Added shortcut for moving tabs Shift+Ctrl+PageDown/PageUp - #225
 - Ctrl+PageDown/PageUp have been added as default keybindins for switching tabs,
   alongside (Shift)+Ctrl+Tab (yes, there are two default keybindings). You may

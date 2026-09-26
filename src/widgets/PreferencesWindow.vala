@@ -60,6 +60,7 @@ public class Terminal.PreferencesWindow : Adw.PreferencesDialog {
   [GtkChild] unowned Adw.SwitchRow            show_headerbar_switch_row;
   [GtkChild] unowned Adw.SwitchRow            context_aware_header_bar_switch_row;
   [GtkChild] unowned Adw.SwitchRow            show_menu_button_switch_row;
+  [GtkChild] unowned Adw.SwitchRow            show_right_click_menu_switch_row;
   [GtkChild] unowned Adw.SwitchRow            show_scrollbars_switch_row;
   [GtkChild] unowned Adw.SwitchRow            use_custom_shell_command_switch_row;
   [GtkChild] unowned Adw.SwitchRow            use_overlay_scrolling_switch_row;
@@ -258,6 +259,13 @@ public class Terminal.PreferencesWindow : Adw.PreferencesDialog {
     settings.schema.bind(
       "show-menu-button",
       this.show_menu_button_switch_row,
+      "active",
+      SettingsBindFlags.DEFAULT
+    );
+
+    settings.schema.bind(
+      "show-right-click-menu",
+      this.show_right_click_menu_switch_row,
       "active",
       SettingsBindFlags.DEFAULT
     );

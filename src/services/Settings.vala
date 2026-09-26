@@ -45,6 +45,7 @@ public class Terminal.Settings : SettingsBinder {
   public bool    remember_window_size                 { get; set; }
   public bool    show_headerbar                       { get; set; }
   public bool    show_menu_button                     { get; set; }
+  public bool    show_right_click_menu                { get; set; }
   public bool    show_scrollbars                      { get; set; }
   public bool    terminal_bell                        { get; set; }
   public bool    theme_bold_is_bright                 { get; set; }

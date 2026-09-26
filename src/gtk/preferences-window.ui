@@ -162,6 +162,12 @@
                 <property name="subtitle" translatable="yes">If enabled, terminals might use an audible bell to indicate events.</property>
               </object>
             </child>
+            <child>
+              <object class="AdwSwitchRow" id="show_right_click_menu_switch_row">
+                <property name="title" translatable="yes">Show Right-Click Menu</property>
+                <property name="subtitle" translatable="yes">Show a context menu when right-clicking the terminal.</property>
+              </object>
+            </child>
 
 
             <child>

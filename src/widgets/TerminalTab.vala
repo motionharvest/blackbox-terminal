@@ -179,6 +179,10 @@ public class Terminal.TerminalTab : Gtk.Box {
   }
 
   public void show_menu (int n_pressed, double x, double y) {
+    if (!Settings.get_default ().show_right_click_menu) {
+      return;
+    }
+
     if (this.terminal.hyperlink_hover_uri != null) {
       this.terminal.window.link = this.terminal.hyperlink_hover_uri;
     } else {

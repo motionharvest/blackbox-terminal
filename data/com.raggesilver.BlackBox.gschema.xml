@@ -47,6 +47,10 @@
       <default>true</default>
       <summary>Whether or not to display a menu button in the headerbar</summary>
     </key>
+    <key name="show-right-click-menu" type="b">
+      <default>true</default>
+      <summary>Whether or not to show a context menu when right-clicking the terminal</summary>
+    </key>
     <key name="headerbar-drag-area" type="b">
       <default>false</default>
       <summary>Whether or not to reserve an area for dragging the header bar</summary>
