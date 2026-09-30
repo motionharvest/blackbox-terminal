@@ -38,7 +38,7 @@ window:not(.about) headerbar,
   margin-right: 6px;
 }
 
-.custom-headerbar windowcontrols.start.empty ~ tabbar {
+.custom-headerbar windowcontrols.start.empty ~ tabstrip {
   margin-left: -6px;
 }
 
@@ -51,7 +51,7 @@ window:not(.about) headerbar,
  */
 .custom-headerbar.with-dragarea:not(.single-tab-mode)
   windowcontrols.start.empty
-  ~ tabbar {
+  ~ tabstrip {
   margin-left: 34px;
 }
 

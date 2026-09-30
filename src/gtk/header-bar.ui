@@ -258,14 +258,26 @@
                         </child>
 
                         <child>
-                          <object class="AdwTabBar" id="tab_bar">
+                          <object class="TerminalTabStrip">
                             <property name="halign">fill</property>
                             <property name="hexpand">true</property>
-                            <property name="autohide">false</property>
-                            <property name="can-focus">false</property>
-                            <style>
-                              <class name="inline" />
-                            </style>
+                            <property name="tab-bar">
+                              <object class="AdwTabBar" id="tab_bar">
+                                <property name="autohide">false</property>
+                                <property name="can-focus">false</property>
+                                <style>
+                                  <class name="inline" />
+                                </style>
+                              </object>
+                            </property>
+                            <property name="trailing-widget">
+                              <object class="GtkButton">
+                                <property name="tooltip-text" translatable="yes">New Tab</property>
+                                <property name="icon-name">list-add-symbolic</property>
+                                <property name="action-name">win.new_tab</property>
+                                <property name="valign">center</property>
+                              </object>
+                            </property>
                           </object>
                         </child>
 
@@ -274,14 +286,6 @@
                             <property name="orientation">horizontal</property>
                             <property name="spacing">0</property>
                             <property name="valign">center</property>
-
-                            <child>
-                              <object class="GtkButton">
-                                <property name="tooltip-text" translatable="yes">New Tab</property>
-                                <property name="icon-name">list-add-symbolic</property>
-                                <property name="action-name">win.new_tab</property>
-                              </object>
-                            </child>
 
                             <child>
                               <object class="GtkButton">
