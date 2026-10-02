@@ -5,6 +5,8 @@
 Features:
 
 - Added a preference to hide the terminal right-click menu
+- Added a preference to send `CSI 57449 u` to the running program when Right
+  Alt is pressed and released on its own
 - Added shortcut for moving tabs Shift+Ctrl+PageDown/PageUp - #225
 - Ctrl+PageDown/PageUp have been added as default keybindins for switching tabs,
   alongside (Shift)+Ctrl+Tab (yes, there are two default keybindings). You may

@@ -43,6 +43,7 @@ public class Terminal.Settings : SettingsBinder {
   public bool    notify_process_completion            { get; set; }
   public bool    pretty                               { get; set; }
   public bool    remember_window_size                 { get; set; }
+  public bool    send_right_alt_tap                   { get; set; }
   public bool    show_headerbar                       { get; set; }
   public bool    show_menu_button                     { get; set; }
   public bool    show_right_click_menu                { get; set; }

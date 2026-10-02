@@ -51,6 +51,10 @@
       <default>true</default>
       <summary>Whether or not to show a context menu when right-clicking the terminal</summary>
     </key>
+    <key name="send-right-alt-tap" type="b">
+      <default>false</default>
+      <summary>Whether or not to send an escape sequence when Right Alt is pressed and released alone</summary>
+    </key>
     <key name="headerbar-drag-area" type="b">
       <default>false</default>
       <summary>Whether or not to reserve an area for dragging the header bar</summary>

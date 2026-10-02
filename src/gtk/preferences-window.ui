@@ -168,6 +168,12 @@
                 <property name="subtitle" translatable="yes">Show a context menu when right-clicking the terminal.</property>
               </object>
             </child>
+            <child>
+              <object class="AdwSwitchRow" id="send_right_alt_tap_switch_row">
+                <property name="title" translatable="yes">Send Right Alt Taps</property>
+                <property name="subtitle" translatable="yes">Send an escape sequence to the running program when Right Alt is pressed and released on its own.</property>
+              </object>
+            </child>
 
 
             <child>

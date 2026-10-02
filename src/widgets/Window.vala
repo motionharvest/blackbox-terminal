@@ -201,6 +201,48 @@ public class Terminal.Window : Adw.ApplicationWindow {
     }
   }
 
+  /**
+   * Sends CSI 57449 u to the focused terminal when Right Alt is pressed and
+   * released with no other key pressed in between. VTE writes nothing for a
+   * lone modifier, so this is the only way a program can learn of the tap.
+   * 57449 is the key code the kitty keyboard protocol assigns to Right Alt.
+   */
+  private void setup_right_alt_tap () {
+    // Attached to the window in the capture phase so it observes every key
+    // press, including ones that window shortcuts such as Alt+1 consume
+    // before they reach the terminal.
+    var controller = new Gtk.EventControllerKey () {
+      propagation_phase = Gtk.PropagationPhase.CAPTURE,
+    };
+
+    // True while Right Alt is held and no other key has been pressed.
+    bool armed = false;
+
+    controller.key_pressed.connect ((keyval) => {
+      armed = keyval == Gdk.Key.Alt_R;
+      return false;
+    });
+
+    // Releasing another key does not cancel a tap. Only pressing one does.
+    controller.key_released.connect ((keyval) => {
+      if (keyval != Gdk.Key.Alt_R) return;
+
+      var terminal = this.active_terminal;
+
+      if (
+        armed &&
+        Settings.get_default ().send_right_alt_tap &&
+        terminal != null &&
+        terminal.has_focus
+      ) {
+        terminal.feed_child ("\x1b[57449u".data);
+      }
+      armed = false;
+    });
+
+    (this as Gtk.Widget)?.add_controller (controller);
+  }
+
   private void connect_signals () {
     this.bind_property (
       "active-terminal-title",
@@ -287,6 +329,8 @@ public class Terminal.Window : Adw.ApplicationWindow {
     motion_controller.motion.connect (this.on_mouse_motion);
 
     (this as Gtk.Widget)?.add_controller (motion_controller);
+
+    this.setup_right_alt_tap ();
 
     this.close_request.connect (this.on_close_request);
 
