@@ -244,14 +244,9 @@ public class Terminal.Window : Adw.ApplicationWindow {
   }
 
   private void connect_signals () {
-    this.bind_property (
-      "active-terminal-title",
-      this,
-      "title",
-      GLib.BindingFlags.SYNC_CREATE,
-      null,
-      null
-    );
+    // The window title is fixed so that window managers, taskbars, and scripts
+    // always see the same name, whatever command the terminal is running.
+    this.title = "Terminal";
 
     this.settings.schema.bind (
       "fill-tabs",
