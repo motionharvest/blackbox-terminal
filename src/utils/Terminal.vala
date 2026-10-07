@@ -233,7 +233,21 @@ namespace Terminal {
     // signal from the connection that spawned it.
     var connection = yield Bus.get (BusType.SESSION);
 
+    // Every terminal's subscription on the shared connection receives every
+    // HostCommandExited, so each acts only on the pid of its own command. An
+    // exit that arrives before the HostCommand reply has named that pid is
+    // kept until the pid is known.
+    uint child_pid = 0;
+    var early_exits = new Gee.HashMap<uint, uint> ();
     uint signal_id = 0;
+
+    HostCommandExitedCallback deliver = (exited_pid, status) => {
+      connection.signal_unsubscribe (signal_id);
+
+      if (callback != null && (cancellable == null || !cancellable.is_cancelled ())) {
+        callback (exited_pid, status);
+      }
+    };
 
     signal_id = connection.signal_subscribe (
       "org.freedesktop.Flatpak",
@@ -245,26 +259,19 @@ namespace Terminal {
       // This callback is only called if the command is properly spawned. It is
       // not called if spawning the command fails.
       (_connection, sender_name, object_path, interface_name, signal_name, parameters) => {
-        connection.signal_unsubscribe (signal_id);
-
-        // I'm not sure which pid this is (it might be from the process that
-        // just exited or from the dbus command call).
-        uint ppid = 0;
-        // This is the return status of the command that just exited. Any
-        // non-zero value means the shell/command exited with an error.
+        // The pid of the command that exited, and its wait status.
+        uint exited_pid = 0;
         uint status = 0;
 
-        parameters.get ("(uu)", &ppid, &status);
+        parameters.get ("(uu)", &exited_pid, &status);
 
-        debug ("Command exited %s %s %s %s pid: %u status %u", signal_name, sender_name, object_path, interface_name, ppid, status);
+        debug ("Command exited pid: %u status %u", exited_pid, status);
 
-        if (callback != null) {
-          if (cancellable?.is_cancelled ()) {
-            //  callback = null;
-          }
-          else {
-            callback (ppid, status);
-          }
+        if (child_pid == 0) {
+          early_exits[exited_pid] = status;
+        }
+        else if (exited_pid == child_pid) {
+          deliver (exited_pid, status);
         }
       }
     );
@@ -307,6 +314,11 @@ namespace Terminal {
       uint p = 0;
       reply.get ("(u)", &p);
       pid = (int) p;
+      child_pid = p;
+
+      if (early_exits.has_key (p)) {
+        deliver (p, early_exits[p]);
+      }
     }
 
     return true;
