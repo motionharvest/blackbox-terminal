@@ -716,11 +716,14 @@ public class Terminal.Terminal : Vte.Terminal {
       return;
     }
 
-    Idle.add_once (() => {
+    // Idle.add, not Idle.add_once: g_idle_add_once takes no destroy notify,
+    // so Vala frees this closure's captures when this method returns.
+    Idle.add (() => {
       var area = this.cells_screen_area (
         (uint) column, (uint) row, (uint) columns, (uint) rows
       );
       this.window.pop_out_herdr_terminal (terminal_id, title ?? "Terminal", area);
+      return Source.REMOVE;
     });
   }
 
