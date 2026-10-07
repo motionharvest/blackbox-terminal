@@ -228,15 +228,10 @@ namespace Terminal {
       handles += in_fd_list.append (fd);
     }
 
-    var connection = yield new DBusConnection.for_address (
-      GLib.Environment.get_variable ("DBUS_SESSION_BUS_ADDRESS"),
-      GLib.DBusConnectionFlags.AUTHENTICATION_CLIENT
-        | GLib.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
-      null,
-      null
-    );
-
-    connection.exit_on_close = true;
+    // The shared session connection is used so that
+    // `send_host_command_signal` reaches the process: Flatpak only accepts a
+    // signal from the connection that spawned it.
+    var connection = yield Bus.get (BusType.SESSION);
 
     uint signal_id = 0;
 
@@ -315,6 +310,34 @@ namespace Terminal {
     }
 
     return true;
+  }
+
+  /**
+   * Sends `signum` to a process started with `send_host_command`, or to its
+   * whole process group when `to_process_group` is true. Both use the shared
+   * session connection, which Flatpak requires.
+   */
+  public static async void send_host_command_signal (
+    int pid,
+    int signum,
+    bool to_process_group
+  ) {
+    try {
+      var connection = yield Bus.get (BusType.SESSION);
+      yield connection.call (
+        "org.freedesktop.Flatpak",
+        "/org/freedesktop/Flatpak/Development",
+        "org.freedesktop.Flatpak.Development",
+        "HostCommandSignal",
+        new Variant ("(uub)", (uint) pid, (uint) signum, to_process_group),
+        null,
+        DBusCallFlags.NONE,
+        -1
+      );
+    }
+    catch (GLib.Error e) {
+      warning ("Failed to signal host process %d: %s", pid, e.message);
+    }
   }
 
   // This function builds a Variant to be passed to Flatpak's HostCommand DBus

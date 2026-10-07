@@ -604,15 +604,27 @@ public class Terminal.Terminal : Vte.Terminal {
 
     this.fp_spawn_host_command_callback_cancellable = new GLib.Cancellable ();
 
-    var res = yield send_host_command (
-      cwd,
-      argv,
-      envv,
-      pty_slaves,
-      this.on_host_command_exited,
-      this.fp_spawn_host_command_callback_cancellable,
-      out p
-    );
+    bool res = false;
+
+    try {
+      res = yield send_host_command (
+        cwd,
+        argv,
+        envv,
+        pty_slaves,
+        this.on_host_command_exited,
+        this.fp_spawn_host_command_callback_cancellable,
+        out p
+      );
+    }
+    finally {
+      // HostCommand receives duplicates of these descriptors. Keeping the
+      // originals open would hold the terminal device open after the tab
+      // closes.
+      foreach (int fd in pty_slaves) {
+        Posix.close (fd);
+      }
+    }
 
     this.pty = _ppty;
 
@@ -795,6 +807,21 @@ public class Terminal.Terminal : Vte.Terminal {
 
   public void on_before_close () {
     this.withdraw_command_completed_notification ();
+    this.hang_up ();
+  }
+
+  /**
+   * Sends SIGHUP to the tab's process group, as a terminal does when it
+   * closes. Outside flatpak, VTE does this itself. Inside flatpak, the child
+   * runs on the host through Flatpak's HostCommand, which VTE does not know
+   * about, so without this a closed tab leaves its program running.
+   */
+  private void hang_up () {
+#if BLACKBOX_IS_FLATPAK
+    if (this.pid <= 0) return;
+
+    send_host_command_signal.begin (this.pid, Posix.Signal.HUP, true);
+#endif
   }
 }
 
