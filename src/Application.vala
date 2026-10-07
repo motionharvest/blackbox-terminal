@@ -91,13 +91,17 @@ public class Terminal.Application : Adw.Application {
       );
     }
     else {
-      new Window (
+      var window = new Window (
         this,
         options.command,
         options.current_working_dir,
         false,
         options.always_on_top
-      ).show ();
+      );
+      if (options.title != null) {
+        window.title = options.title;
+      }
+      window.show ();
     }
     this.release ();
     return 0;

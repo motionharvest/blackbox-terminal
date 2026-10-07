@@ -255,6 +255,7 @@ public class Terminal.Window : Adw.ApplicationWindow {
   private void connect_signals () {
     // The window title is fixed so that window managers, taskbars, and scripts
     // always see the same name, whatever command the terminal is running.
+    // A launch with --title replaces it for that one window.
     this.title = "Terminal";
 
     this.settings.schema.bind (
