@@ -70,6 +70,14 @@ if get_option('blackbox_debug_memory')
   add_project_arguments('-D', 'BLACKBOX_DEBUG_MEMORY', language: 'vala')
 endif
 
+# X11 is optional: without it, --always-on-top only logs a warning.
+gtk4_x11_dep = dependency('gtk4-x11', required: false)
+x11_dep = dependency('x11', required: false)
+if gtk4_x11_dep.found() and x11_dep.found()
+  blackbox_deps += [gtk4_x11_dep, x11_dep]
+  add_project_arguments('-D', 'BLACKBOX_HAS_X11', language: 'vala')
+endif
+
 if get_option('blackbox_is_flatpak')
   add_project_arguments('-D', 'BLACKBOX_IS_FLATPAK', language: 'vala')
 endif

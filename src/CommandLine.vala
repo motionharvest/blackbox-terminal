@@ -21,6 +21,7 @@
 public struct Terminal.CommandLineOptions {
   string? command;
   string? current_working_dir;
+  bool    always_on_top;
   bool    version;
   bool    help;
 }
@@ -32,6 +33,7 @@ public struct Terminal.CommandLineOptions {
 //    -v, --version               Show app version
 //    -w, --working-directory     Set current working directory
 //    -c, --command               Execute command in a terminal
+//    --always-on-top             Keep the new window above other windows
 //    -h, --help                  Show help
 
 public class Terminal.CommandLine {
@@ -66,6 +68,15 @@ public class Terminal.CommandLine {
         flags           = OptionFlags.NONE,
         arg             = OptionArg.STRING,
         arg_data        = &options.command,
+        arg_description = null,
+      },
+      OptionEntry () {
+        long_name       = "always-on-top",
+        short_name      = 0,
+        description     = _("Keep the new window above other windows"),
+        flags           = OptionFlags.NONE,
+        arg             = OptionArg.NONE,
+        arg_data        = &options.always_on_top,
         arg_description = null,
       },
       OptionEntry () {

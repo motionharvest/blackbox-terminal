@@ -93,6 +93,13 @@ public class Terminal.Window : Adw.ApplicationWindow {
   public string         active_terminal_title { get; private set; default = ""; }
   public uint           id                    { get; private set; }
 
+  /**
+   * Whether this window asks the window manager to keep it above all other
+   * windows. Only X11 window managers honour the request; Wayland gives
+   * clients no way to make it.
+   */
+  public bool           always_on_top         { get; construct; default = false; }
+
   // Terminal tabs set this to any link clicked by the user. The value is then
   // consumed by the open-link and copy-link actions.
   public string? link  { get; set; default = null; }
@@ -177,7 +184,8 @@ public class Terminal.Window : Adw.ApplicationWindow {
     Gtk.Application app,
     string? command = null,
     string? cwd = null,
-    bool skip_initial_tab = false
+    bool skip_initial_tab = false,
+    bool always_on_top = false
   ) {
     var sett = Settings.get_default ();
     var wwidth = (int) (sett.remember_window_size ? sett.window_width : 700);
@@ -188,7 +196,8 @@ public class Terminal.Window : Adw.ApplicationWindow {
       default_width: wwidth,
       default_height: wheight,
       fullscreened: sett.remember_window_size && sett.was_fullscreened,
-      maximized: sett.remember_window_size && sett.was_maximized
+      maximized: sett.remember_window_size && sett.was_maximized,
+      always_on_top: always_on_top
     );
 
     this.theme_provider = ThemeProvider.get_default ();
@@ -309,13 +318,20 @@ public class Terminal.Window : Adw.ApplicationWindow {
 
     this.tab_view.setup_menu.connect (this.on_setup_menu);
 
-    this.notify["default-width"].connect (() => {
-      this.settings.window_width = this.default_width;
-    });
+    // An always-on-top window is a temporary companion to the main window, so
+    // its size must not replace the size remembered for the main window.
+    if (!this.always_on_top) {
+      this.notify["default-width"].connect (() => {
+        this.settings.window_width = this.default_width;
+      });
 
-    this.notify["default-height"].connect (() => {
-      this.settings.window_height = this.default_height;
-    });
+      this.notify["default-height"].connect (() => {
+        this.settings.window_height = this.default_height;
+      });
+    }
+    else {
+      this.setup_keep_above ();
+    }
 
     this.notify ["active-terminal"]
       .connect (this.on_active_terminal_tab_changed);
@@ -916,6 +932,77 @@ public class Terminal.Window : Adw.ApplicationWindow {
     } else {
       this.fullscreen ();
     }
+  }
+
+  /**
+   * Requests keep-above once each time the window is shown.
+   *
+   * The window manager ignores the request until it manages the window. GTK
+   * marks the surface mapped before that happens, so the request waits for
+   * the first state change after mapping, which the window manager makes
+   * when it takes the window over. Sending it once per showing lets the
+   * person turn keep-above off from the window menu without it returning.
+   */
+  private void setup_keep_above () {
+    ((Gtk.Widget) this).realize.connect (() => {
+      var surface = this.get_surface ();
+      var toplevel = (Gdk.Toplevel) surface;
+      bool requested = false;
+
+      surface.notify["mapped"].connect (() => {
+        if (!surface.mapped) {
+          requested = false;
+        }
+      });
+
+      toplevel.notify["state"].connect (() => {
+        if (requested || !surface.mapped) return;
+
+        requested = true;
+        if (!(Gdk.ToplevelState.ABOVE in toplevel.state)) {
+          this.request_keep_above ();
+        }
+      });
+    });
+  }
+
+  /**
+   * Asks the window manager to add _NET_WM_STATE_ABOVE to this window. GTK 4
+   * removed its keep-above API, so the request is the EWMH client message
+   * that GTK 3 used to send.
+   */
+  private void request_keep_above () {
+#if BLACKBOX_HAS_X11
+    var display = this.get_display () as Gdk.X11.Display;
+    var surface = this.get_surface () as Gdk.X11.Surface;
+
+    if (display == null || surface == null) {
+      warning ("Always on top is only supported on X11.");
+      return;
+    }
+
+    unowned X.Display xdisplay = display.get_xdisplay ();
+
+    var ev = X.Event ();
+    ev.xclient.type = X.EventType.ClientMessage;
+    ev.xclient.window = surface.get_xid ();
+    ev.xclient.message_type = xdisplay.intern_atom ("_NET_WM_STATE", false);
+    ev.xclient.format = 32;
+    ev.xclient.l[0] = 1; // _NET_WM_STATE_ADD
+    ev.xclient.l[1] = (long) xdisplay.intern_atom ("_NET_WM_STATE_ABOVE", false);
+    ev.xclient.l[2] = 0;
+    ev.xclient.l[3] = 1; // Source indication: a normal application
+    ev.xclient.l[4] = 0;
+
+    xdisplay.send_event (
+      display.get_xrootwindow (),
+      false,
+      X.EventMask.SubstructureRedirectMask | X.EventMask.SubstructureNotifyMask,
+      ref ev
+    );
+#else
+    warning ("Always on top is only supported on X11.");
+#endif
   }
 
   public Window new_window (

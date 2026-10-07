@@ -95,7 +95,8 @@ public class Terminal.Application : Adw.Application {
         this,
         options.command,
         options.current_working_dir,
-        false
+        false,
+        options.always_on_top
       ).show ();
     }
     this.release ();
