@@ -17,5 +17,6 @@
  */
 
 int main (string[] args) {
+  Terminal.Terminal.install_termprops ();
   return new Terminal.Application ().run (args);
 }

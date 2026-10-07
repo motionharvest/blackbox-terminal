@@ -84,6 +84,35 @@ public class Terminal.Terminal : Vte.Terminal {
   private uint              original_scrollback_lines;
   private GLib.Cancellable? fp_spawn_host_command_callback_cancellable = null;
   private static uint       next_id = 0;
+
+  // A program in the terminal asks Black Box to open a herdr pane in its own
+  // window by setting these VTE terminal properties with OSC 666 and then
+  // raising `open`. They carry a herdr terminal id and a block of cells,
+  // never a command: any program's output can contain this sequence.
+  private const string POP_OUT              = "vte.ext.blackbox.pop-out";
+  private const string POP_OUT_TERMINAL_ID  = POP_OUT + ".terminal-id";
+  private const string POP_OUT_TITLE        = POP_OUT + ".title";
+  private const string POP_OUT_COLUMN       = POP_OUT + ".column";
+  private const string POP_OUT_ROW          = POP_OUT + ".row";
+  private const string POP_OUT_COLUMNS      = POP_OUT + ".columns";
+  private const string POP_OUT_ROWS         = POP_OUT + ".rows";
+  private const string POP_OUT_OPEN         = POP_OUT + ".open";
+
+  /**
+   * Registers the pop-out terminal properties. VTE requires this before the
+   * first terminal is created. They are ephemeral: VTE clears them right
+   * after announcing a change, so a request cannot linger and fire twice.
+   */
+  public static void install_termprops () {
+    var flags = Vte.PropertyFlags.EPHEMERAL;
+    Vte.install_termprop (POP_OUT_TERMINAL_ID, Vte.PropertyType.STRING, flags);
+    Vte.install_termprop (POP_OUT_TITLE, Vte.PropertyType.STRING, flags);
+    Vte.install_termprop (POP_OUT_COLUMN, Vte.PropertyType.UINT, flags);
+    Vte.install_termprop (POP_OUT_ROW, Vte.PropertyType.UINT, flags);
+    Vte.install_termprop (POP_OUT_COLUMNS, Vte.PropertyType.UINT, flags);
+    Vte.install_termprop (POP_OUT_ROWS, Vte.PropertyType.UINT, flags);
+    Vte.install_termprop (POP_OUT_OPEN, Vte.PropertyType.VALUELESS, flags);
+  }
   private uint              attention_timer = 0;
 
   // FIXME: either get rid of this field, or stop creating a local copy of
@@ -109,6 +138,7 @@ public class Terminal.Terminal : Vte.Terminal {
     this.valign = Gtk.Align.FILL;
 
     this.child_exited.connect (this.on_child_exited);
+    this.termprop_changed[POP_OUT_OPEN].connect (this.on_pop_out_requested);
 
     this.settings = Settings.get_default ();
     ThemeProvider.get_default ().notify ["current-theme"].connect (this.on_theme_changed);
@@ -660,6 +690,117 @@ public class Terminal.Terminal : Vte.Terminal {
   }
 
   // Signal callbacks ==========================================================
+
+  /**
+   * Reads a pop-out request. VTE allows only termprop reads while it
+   * announces a change, so the window opens on the next idle cycle.
+   */
+  private void on_pop_out_requested () {
+    size_t length;
+    string? terminal_id = this.dup_termprop_string (POP_OUT_TERMINAL_ID, out length);
+    string? title = this.dup_termprop_string (POP_OUT_TITLE, out length);
+    uint64 column = 0, row = 0, columns = 0, rows = 0;
+
+    if (
+      terminal_id == null ||
+      !is_herdr_terminal_id (terminal_id) ||
+      !this.get_termprop_uint (POP_OUT_COLUMN, out column) ||
+      !this.get_termprop_uint (POP_OUT_ROW, out row) ||
+      !this.get_termprop_uint (POP_OUT_COLUMNS, out columns) ||
+      !this.get_termprop_uint (POP_OUT_ROWS, out rows) ||
+      columns == 0 || rows == 0 ||
+      columns > uint16.MAX || rows > uint16.MAX ||
+      column > uint16.MAX || row > uint16.MAX
+    ) {
+      warning ("Ignored an incomplete or invalid pop-out request.");
+      return;
+    }
+
+    Idle.add_once (() => {
+      var area = this.cells_screen_area (
+        (uint) column, (uint) row, (uint) columns, (uint) rows
+      );
+      this.window.pop_out_herdr_terminal (terminal_id, title ?? "Terminal", area);
+    });
+  }
+
+  /**
+   * herdr terminal ids are `term_` followed by lowercase hex. Anything else
+   * is refused, which also keeps the id safe to place in a shell command.
+   */
+  private static bool is_herdr_terminal_id (string id) {
+    if (!id.has_prefix ("term_") || id.length == 5 || id.length > 64) {
+      return false;
+    }
+    for (int i = 5; i < id.length; i++) {
+      var c = id[i];
+      if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Where a block of this terminal's cells is on the screen, in X11
+   * pixels. Null when the window is not on an X11 display.
+   */
+  public Gdk.Rectangle? cells_screen_area (
+    uint column,
+    uint row,
+    uint columns,
+    uint rows
+  ) {
+#if BLACKBOX_HAS_X11
+    var native = this.get_native ();
+    var display = this.get_display () as Gdk.X11.Display;
+    var surface = native?.get_surface () as Gdk.X11.Surface;
+
+    if (native == null || display == null || surface == null) {
+      return null;
+    }
+
+    // Cell (0, 0) starts inside the terminal's padding.
+    var pad = this.settings.get_padding ();
+    var origin = Graphene.Point () { x = pad.left, y = pad.top };
+    Graphene.Point in_native;
+    if (!this.compute_point ((Gtk.Widget) native, origin, out in_native)) {
+      return null;
+    }
+
+    // The window's widgets start after its client-side shadow.
+    double shadow_x, shadow_y;
+    native.get_surface_transform (out shadow_x, out shadow_y);
+
+    unowned X.Display xdisplay = display.get_xdisplay ();
+    int surface_x, surface_y;
+    X.Window child;
+    xdisplay.translate_coordinates (
+      surface.get_xid (),
+      display.get_xrootwindow (),
+      0,
+      0,
+      out surface_x,
+      out surface_y,
+      out child
+    );
+
+    var scale = surface.get_scale_factor ();
+    double cell_width = this.get_char_width ();
+    double cell_height = this.get_char_height ();
+    double x = shadow_x + in_native.x + column * cell_width;
+    double y = shadow_y + in_native.y + row * cell_height;
+
+    return Gdk.Rectangle () {
+      x = surface_x + (int) Math.round (x * scale),
+      y = surface_y + (int) Math.round (y * scale),
+      width = (int) Math.round (columns * cell_width * scale),
+      height = (int) Math.round (rows * cell_height * scale),
+    };
+#else
+    return null;
+#endif
+  }
 
   private void on_child_exited (int status) {
     debug ("Child exited with code %d", status);

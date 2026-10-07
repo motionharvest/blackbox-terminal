@@ -49,6 +49,7 @@ blackbox_deps = [
   dependency('gee-0.8', version: '>=0.20'),
   dependency('graphene-gobject-1.0'),
   meson.get_compiler('vala').find_library('posix'),
+  meson.get_compiler('c').find_library('m'),
 ]
 
 # https://github.com/elementary/terminal/blob/d9620eb12331a28c658f97ac9a1bdb809aa90089/meson.build

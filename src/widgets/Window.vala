@@ -100,6 +100,11 @@ public class Terminal.Window : Adw.ApplicationWindow {
    */
   public bool           always_on_top         { get; construct; default = false; }
 
+  // Where the window's visible top-left corner goes once the window manager
+  // has taken the window over, in X11 pixels. Null leaves placement to the
+  // window manager.
+  private Gdk.Rectangle? screen_area = null;
+
   // Terminal tabs set this to any link clicked by the user. The value is then
   // consumed by the open-link and copy-link actions.
   public string? link  { get; set; default = null; }
@@ -195,8 +200,8 @@ public class Terminal.Window : Adw.ApplicationWindow {
       application: app,
       default_width: wwidth,
       default_height: wheight,
-      fullscreened: sett.remember_window_size && sett.was_fullscreened,
-      maximized: sett.remember_window_size && sett.was_maximized,
+      fullscreened: !always_on_top && sett.remember_window_size && sett.was_fullscreened,
+      maximized: !always_on_top && sett.remember_window_size && sett.was_maximized,
       always_on_top: always_on_top
     );
 
@@ -963,6 +968,9 @@ public class Terminal.Window : Adw.ApplicationWindow {
         if (!(Gdk.ToplevelState.ABOVE in toplevel.state)) {
           this.request_keep_above ();
         }
+        if (this.screen_area != null) {
+          this.move_to_screen_area ();
+        }
       });
     });
   }
@@ -1003,6 +1011,58 @@ public class Terminal.Window : Adw.ApplicationWindow {
     );
 #else
     warning ("Always on top is only supported on X11.");
+#endif
+  }
+
+  /**
+   * Opens a herdr terminal in its own always-on-top window, titled `title`
+   * and covering `area` when one is given.
+   *
+   * The attach runs through an interactive shell, so `herdr` resolves from
+   * the same PATH a person's prompt has. A tab's shell runs with `-c`, which
+   * skips the interactive startup files where PATH is often extended.
+   * `terminal_id` was checked to be `term_` and hex, so quoting is safe.
+   */
+  public void pop_out_herdr_terminal (
+    string terminal_id,
+    string title,
+    Gdk.Rectangle? area
+  ) {
+    var command = "exec \"$SHELL\" -ic 'exec herdr terminal attach %s'"
+      .printf (terminal_id);
+    var window = new Window (this.application, command, null, false, true);
+    window.title = title;
+
+    if (area != null) {
+      int scale = this.get_surface ()?.get_scale_factor () ?? 1;
+      window.set_default_size (area.width / scale, area.height / scale);
+      window.screen_area = area;
+    }
+    window.show ();
+  }
+
+  /**
+   * Moves the window so that its visible top-left corner, after the
+   * client-side shadow, sits at `screen_area`'s corner.
+   */
+  private void move_to_screen_area () {
+#if BLACKBOX_HAS_X11
+    var display = this.get_display () as Gdk.X11.Display;
+    var surface = this.get_surface () as Gdk.X11.Surface;
+
+    if (display == null || surface == null || this.screen_area == null) {
+      return;
+    }
+
+    double shadow_x, shadow_y;
+    this.get_surface_transform (out shadow_x, out shadow_y);
+    var scale = surface.get_scale_factor ();
+
+    display.get_xdisplay ().move_window (
+      surface.get_xid (),
+      this.screen_area.x - (int) Math.round (shadow_x * scale),
+      this.screen_area.y - (int) Math.round (shadow_y * scale)
+    );
 #endif
   }
 
