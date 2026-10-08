@@ -98,10 +98,16 @@ public class Terminal.Terminal : Vte.Terminal {
   private const string POP_OUT_ROWS         = POP_OUT + ".rows";
   private const string POP_OUT_OPEN         = POP_OUT + ".open";
 
+  // A program that opens the links a person Ctrl+clicks sets this to true,
+  // and Black Box leaves those clicks to it. herdr sets it while it runs, so
+  // a link opens once. A terminal reset clears it.
+  private const string APP_OPENS_LINKS      = "vte.ext.blackbox.app-opens-links";
+
   /**
-   * Registers the pop-out terminal properties. VTE requires this before the
-   * first terminal is created. They are ephemeral: VTE clears them right
-   * after announcing a change, so a request cannot linger and fire twice.
+   * Registers Black Box's terminal properties. VTE requires this before the
+   * first terminal is created. The pop-out properties are ephemeral: VTE
+   * clears them right after announcing a change, so a request cannot linger
+   * and fire twice. The link-click claim persists until reset.
    */
   public static void install_termprops () {
     var flags = Vte.PropertyFlags.EPHEMERAL;
@@ -112,6 +118,11 @@ public class Terminal.Terminal : Vte.Terminal {
     Vte.install_termprop (POP_OUT_COLUMNS, Vte.PropertyType.UINT, flags);
     Vte.install_termprop (POP_OUT_ROWS, Vte.PropertyType.UINT, flags);
     Vte.install_termprop (POP_OUT_OPEN, Vte.PropertyType.VALUELESS, flags);
+    Vte.install_termprop (
+      APP_OPENS_LINKS,
+      Vte.PropertyType.BOOL,
+      Vte.PropertyFlags.NONE
+    );
   }
   private uint              attention_timer = 0;
 
@@ -409,6 +420,14 @@ public class Terminal.Terminal : Vte.Terminal {
       if (
         (event.get_modifier_state () & Gdk.ModifierType.CONTROL_MASK) == 0 ||
         pattern == null
+      ) {
+        return;
+      }
+
+      bool app_opens_links;
+      if (
+        this.get_termprop_bool (APP_OPENS_LINKS, out app_opens_links) &&
+        app_opens_links
       ) {
         return;
       }
